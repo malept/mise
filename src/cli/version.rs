@@ -26,6 +26,7 @@ pub static ARCH: Lazy<String> = Lazy::new(|| {
     match env::consts::ARCH {
         "x86_64" => "x64",
         "aarch64" => "arm64",
+        "arm" => "armv7",
         _ => env::consts::ARCH,
     }
     .to_string()
