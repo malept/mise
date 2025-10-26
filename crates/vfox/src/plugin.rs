@@ -122,6 +122,7 @@ impl Plugin {
             lua_mod::html(&self.lua)?;
             lua_mod::http(&self.lua)?;
             lua_mod::json(&self.lua)?;
+            lua_mod::sigstore(&self.lua)?;
             lua_mod::strings(&self.lua)?;
             lua_mod::env(&self.lua)?;
 
