@@ -14,6 +14,7 @@ mise plugins have access to a comprehensive set of built-in Lua modules that pro
 - **`strings`** - String manipulation utilities
 - **`html`** - HTML parsing and manipulation
 - **`archiver`** - Archive extraction
+- **`sigstore`** - Verify software artifact signatures and attestations
 
 ## HTTP Module
 
@@ -483,6 +484,49 @@ end
 
 local os_info = get_os_info()
 print("OS Info:", os_info)
+```
+
+## Sigstore Module
+
+The `sigstore` module verifies software artifact signatures and attestations.
+
+### Verifying GitHub Artifacts
+
+```lua
+local sigstore = require("sigstore")
+
+if sigstore.verify_github_attestation("/local/path/to/artifact", "repo_owner", "repo_name") then
+    print("Artifact verified")
+else
+    print("Artifact NOT verified")
+end
+```
+
+### Real-World Example: Tool Validation
+
+```lua
+local http = require("http")
+local sigstore = require("sigstore")
+local strings = require("strings")
+
+function validate_archive(download_url, install_path, github_owner, github_repo)
+    -- Download the archive
+    local url_path_parts = strings.split(download_url, "/")
+    local url_basename = url_path_parts[#url_path_parts]
+    local archive_path = install_path .. url_basename
+    local err = http.download_file({
+        url = download_url
+    }, archive_path)
+
+    if err ~= nil then
+        error("Download failed: " .. err)
+    end
+
+    -- Verify the downloaded archive
+    if not sigstore.verify_github_attestation(archive_path, github_owner, github_repo) then
+        error("Validation failed")
+    end
+end
 ```
 
 ## Practical Examples
