@@ -309,15 +309,12 @@ impl Backend for VfoxBackend {
                     .await?;
 
                 // Convert BackendPreInstallResponse to PlatformInfo
-                let checksum = if let Some(sha256) = response.sha256 {
-                    Some(format!("sha256:{sha256}"))
-                } else if let Some(sha512) = response.sha512 {
-                    Some(format!("sha512:{sha512}"))
-                } else if let Some(sha1) = response.sha1 {
-                    Some(format!("sha1:{sha1}"))
-                } else {
-                    response.md5.map(|md5| format!("md5:{md5}"))
-                };
+                let checksum = response
+                    .sha256
+                    .map(|v| format!("sha256:{v}"))
+                    .or_else(|| response.sha512.map(|v| format!("sha512:{v}")))
+                    .or_else(|| response.sha1.map(|v| format!("sha1:{v}")))
+                    .or_else(|| response.md5.map(|v| format!("md5:{v}")));
 
                 return Ok(PlatformInfo {
                     url: response.url,
