@@ -693,4 +693,70 @@ mod tests {
         let out = format!("{metadata:?}");
         assert_snapshot!(out);
     }
+
+    #[tokio::test]
+    async fn test_backend_pre_install_for_platform() {
+        let vfox = Vfox::test();
+        let response = vfox
+            .backend_pre_install_for_platform(
+                "dummybackend",
+                "mytool",
+                "1.0.0",
+                "linux",
+                "amd64",
+                IndexMap::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.url.as_deref(),
+            Some("https://example.com/mytool/1.0.0/linux-amd64.tar.gz")
+        );
+        assert_eq!(
+            response.sha256.as_deref(),
+            Some("dummychecksum_mytool_1.0.0_linux_amd64")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_backend_pre_install_cross_platform() {
+        let vfox = Vfox::test();
+        let response = vfox
+            .backend_pre_install_for_platform(
+                "dummybackend",
+                "mytool",
+                "1.0.0",
+                "darwin",
+                "arm64",
+                IndexMap::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.url.as_deref(),
+            Some("https://example.com/mytool/1.0.0/darwin-arm64.tar.gz")
+        );
+        assert_eq!(
+            response.sha256.as_deref(),
+            Some("dummychecksum_mytool_1.0.0_darwin_arm64")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_backend_pre_install_missing_hook() {
+        let vfox = Vfox::test();
+        // The "dummy" plugin is a traditional vfox plugin without backend_pre_install.lua
+        let result = vfox
+            .backend_pre_install_for_platform(
+                "dummy",
+                "sometool",
+                "1.0.0",
+                "linux",
+                "amd64",
+                IndexMap::new(),
+            )
+            .await;
+        // Should error because the hook file doesn't exist
+        assert!(result.is_err());
+    }
 }
