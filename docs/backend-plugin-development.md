@@ -68,26 +68,17 @@ end
 
 ### BackendPreInstall (Optional)
 
-Provides download URLs and checksums for a tool version. When present, mise calls this hook during `mise use` / `mise install` to populate the lockfile with platform-specific asset information. The lockfile stores URLs and checksums so that future installs can verify integrity without re-querying the plugin.
-
-When this hook is called, `RUNTIME.osType` and `RUNTIME.archType` are set to the **target** platform (not necessarily the current host). Mise calls the hook once per platform so it can build a cross-platform lockfile.
+Provides download URLs and checksums for a tool version. When present, mise calls this hook once per platform during `mise use` / `mise install` to populate the lockfile. `RUNTIME.osType` and `RUNTIME.archType` are set to the **target** platform (not necessarily the current host).
 
 ```lua
 function PLUGIN:BackendPreInstall(ctx)
-    local tool = ctx.tool
-    local version = ctx.version
-    local os_type = RUNTIME.osType   -- e.g. "linux", "darwin", "windows"
-    local arch_type = RUNTIME.archType -- e.g. "amd64", "arm64"
+    local url = "https://example.com/releases/" .. ctx.tool
+        .. "/" .. ctx.version .. "/" .. ctx.tool
+        .. "-" .. RUNTIME.osType .. "-" .. RUNTIME.archType .. ".tar.gz"
 
-    -- Construct the download URL for this platform
-    local url = "https://example.com/releases/" .. tool
-        .. "/" .. version .. "/" .. tool .. "-" .. os_type .. "-" .. arch_type .. ".tar.gz"
-
-    -- Return URL and any available checksums (all fields are optional)
     return {
         url = url,
-        sha256 = "abc123...",  -- optional
-        -- sha512, sha1, md5 are also supported
+        sha256 = "abc123...",  -- optional; sha512, sha1, md5 also supported
     }
 end
 ```
@@ -285,10 +276,8 @@ Backend plugins receive context through the `ctx` parameter passed to each hook 
 | `url`    | Download URL for this platform | `"https://example.com/tool-linux.tar.gz"` |
 | `sha256` | SHA-256 checksum (hex)         | `"e3b0c44298fc1c14..."`                   |
 | `sha512` | SHA-512 checksum (hex)         | `"cf83e1357eefb8bd..."`                   |
-| `sha1`   | SHA-1 checksum (hex)           | `"da39a3ee5e6b4b0d..."`                   |
-| `md5`    | MD5 checksum (hex)             | `"d41d8cd98f00b204..."`                   |
 
-All return fields are optional. When `RUNTIME.osType` / `RUNTIME.archType` are overridden by mise for cross-platform lockfile resolution, they reflect the **target** platform.
+All return fields are optional. `sha1` and `md5` are also accepted but `sha256` or `sha512` are preferred.
 
 ### BackendExecEnv Context
 
