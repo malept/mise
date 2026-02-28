@@ -2,6 +2,7 @@ pub mod available;
 pub mod backend_exec_env;
 pub mod backend_install;
 pub mod backend_list_versions;
+pub mod backend_pre_install;
 pub mod env_keys;
 pub mod mise_env;
 pub mod mise_path;

@@ -13,6 +13,7 @@ use crate::hooks::available::AvailableVersion;
 use crate::hooks::backend_exec_env::BackendExecEnvContext;
 use crate::hooks::backend_install::BackendInstallContext;
 use crate::hooks::backend_list_versions::BackendListVersionsContext;
+use crate::hooks::backend_pre_install::{BackendPreInstallContext, BackendPreInstallResponse};
 use crate::hooks::env_keys::{EnvKey, EnvKeysContext};
 use crate::hooks::mise_env::{MiseEnvContext, MiseEnvResult};
 use crate::hooks::mise_path::MisePathContext;
@@ -309,6 +310,24 @@ impl Vfox {
         };
         plugin.backend_install(ctx).await?;
         Ok(())
+    }
+
+    pub async fn backend_pre_install_for_platform(
+        &self,
+        sdk: &str,
+        tool: &str,
+        version: &str,
+        os: &str,
+        arch: &str,
+        options: IndexMap<String, String>,
+    ) -> Result<BackendPreInstallResponse> {
+        let plugin = self.get_sdk(sdk)?;
+        let ctx = BackendPreInstallContext {
+            tool: tool.to_string(),
+            version: version.to_string(),
+            options,
+        };
+        plugin.backend_pre_install_for_platform(ctx, os, arch).await
     }
 
     pub async fn backend_exec_env(
