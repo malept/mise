@@ -256,6 +256,32 @@ impl Backend for VfoxBackend {
         let (os, arch) = Self::to_vfox_platform(target);
 
         let (vfox, _log_rx) = self.plugin.vfox();
+
+        // Use BackendPreInstall hook for backend plugins if available
+        if self.is_backend_plugin() {
+            let hook_path = self
+                .plugin
+                .plugin_path
+                .join("hooks/backend_pre_install.lua");
+            if !hook_path.exists() {
+                return Ok(None);
+            }
+            let tool_name = self.get_tool_name()?;
+            let tool_opts = tv.request.options();
+            let response = vfox
+                .backend_pre_install_for_platform(
+                    &self.pathname,
+                    tool_name,
+                    &tv.version,
+                    os,
+                    arch,
+                    tool_opts.opts.clone(),
+                )
+                .await?;
+            return Ok(response.url);
+        }
+
+        // Use default vfox behavior for traditional plugins
         let pre_install = vfox
             .pre_install_for_platform(&self.pathname, &tv.version, os, arch)
             .await?;
