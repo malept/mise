@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
 use tokio::sync::RwLock;
+use vfox::BackendInstallContext;
 
 use crate::backend::Backend;
 use crate::backend::VersionInfo;
@@ -117,17 +118,17 @@ impl Backend for VfoxBackend {
                 .lock_platforms
                 .get(&platform_key)
                 .and_then(|p| p.url.clone());
-            vfox.backend_install(
-                &self.pathname,
-                tool_name,
-                &tv.version,
-                tv.install_path(),
-                tv.download_path(),
-                tool_opts.opts_as_strings(),
-                locked_url,
-            )
-            .await
-            .wrap_err("Backend install method failed")?;
+            let install_ctx = BackendInstallContext {
+                tool: tool_name.to_string(),
+                version: tv.version.clone(),
+                install_path: tv.install_path(),
+                download_path: tv.download_path(),
+                options: tool_opts.opts_as_strings(),
+                url: locked_url,
+            };
+            vfox.backend_install(&self.pathname, install_ctx)
+                .await
+                .wrap_err("Backend install method failed")?;
             return Ok(tv);
         }
 

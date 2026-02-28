@@ -291,26 +291,8 @@ impl Vfox {
         plugin.backend_list_versions(ctx).await.map(|r| r.versions)
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub async fn backend_install(
-        &self,
-        sdk: &str,
-        tool: &str,
-        version: &str,
-        install_path: PathBuf,
-        download_path: PathBuf,
-        options: IndexMap<String, String>,
-        url: Option<String>,
-    ) -> Result<()> {
+    pub async fn backend_install(&self, sdk: &str, ctx: BackendInstallContext) -> Result<()> {
         let plugin = self.get_sdk(sdk)?;
-        let ctx = BackendInstallContext {
-            tool: tool.to_string(),
-            version: version.to_string(),
-            install_path,
-            download_path,
-            options,
-            url,
-        };
         plugin.backend_install(ctx).await?;
         Ok(())
     }
