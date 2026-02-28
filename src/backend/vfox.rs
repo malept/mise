@@ -314,10 +314,8 @@ impl Backend for VfoxBackend {
                     Some(format!("sha512:{sha512}"))
                 } else if let Some(sha1) = response.sha1 {
                     Some(format!("sha1:{sha1}"))
-                } else if let Some(md5) = response.md5 {
-                    Some(format!("md5:{md5}"))
                 } else {
-                    None
+                    response.md5.map(|md5| format!("md5:{md5}"))
                 };
 
                 return Ok(PlatformInfo {

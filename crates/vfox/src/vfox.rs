@@ -291,6 +291,7 @@ impl Vfox {
         plugin.backend_list_versions(ctx).await.map(|r| r.versions)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn backend_install(
         &self,
         sdk: &str,
