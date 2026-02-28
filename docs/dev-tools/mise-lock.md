@@ -194,7 +194,9 @@ mise use node@24
 Backend support for lockfile features varies:
 
 - ✅ **Full support** (version + checksum + size + URL): `aqua`, `http`, `github`, `gitlab`
+- ✅ **Full support** (version + checksum + size + URL): `aqua`, `http`, `github`, `gitlab`
   - _Provenance support_: `aqua`, `github`, `core:ruby` (precompiled binaries), `core:zig` (install-time)
+- ✅ **Full support** (version + checksum + URL): `vfox` backend plugins with [`BackendPreInstall`](/backend-plugin-development#backendpreinstall-optional)
 - ⚠️ **Partial support** (version + URL + provenance): `vfox` (tool plugins only)
 - ⚠️ **Partial support** (version + checksum + size): `ubi`
 - 📝 **Basic support** (version + checksum): `core` (some tools)
@@ -297,3 +299,4 @@ This pairs well with lockfiles — use `install_before` to avoid picking up bran
 - [Configuration Settings](/configuration/settings) - All available settings
 - [Tool Version Management](/dev-tools/) - How tool versions work
 - [Backends](/dev-tools/backends/) - Backend-specific checksum support
+- [Backend Plugin Development](/backend-plugin-development#lockfile-support) - Lockfile support for custom backend plugins

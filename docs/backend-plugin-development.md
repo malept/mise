@@ -512,6 +512,8 @@ checksum = "sha256:abc123..."
 
 If `BackendPreInstall` is not implemented, the plugin still works but without lockfile platform entries (similar to npm packages where checksums aren't practical).
 
+See [mise.lock](/dev-tools/mise-lock) for general lockfile documentation and settings.
+
 ## Performance Optimization
 
 ### Caching
