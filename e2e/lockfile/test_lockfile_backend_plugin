@@ -4,7 +4,7 @@ export MISE_LOCKFILE=1
 export MISE_EXPERIMENTAL=1
 
 # Link the dummybackend plugin
-mise plugins link dummybackend "$ROOT/test/plugins/dummybackend"
+mise plugins link dummybackend "$ROOT/crates/vfox/plugins/dummybackend"
 
 # === Test 1: mise use auto-locks all platforms with URL and checksum ===
 cat <<EOF >mise.toml

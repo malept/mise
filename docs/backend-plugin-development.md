@@ -262,13 +262,13 @@ Backend plugins receive context through the `ctx` parameter passed to each hook 
 
 ### BackendInstall Context
 
-| Variable            | Description                                                    | Example                                                            |
-| ------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `ctx.tool`          | The tool name                                                  | `"prettier"`                                                       |
-| `ctx.version`       | The requested version                                          | `"3.0.0"`                                                          |
-| `ctx.install_path`  | Installation directory                                         | `"/home/user/.local/share/mise/installs/vfox-npm-prettier/3.0.0"`  |
-| `ctx.download_path` | Download directory                                             | `"/home/user/.local/share/mise/downloads/vfox-npm-prettier/3.0.0"` |
-| `ctx.url`           | Pre-resolved download URL from lockfile or BackendPreInstall (may be nil) | `"https://example.com/tool-1.0.0-linux-amd64.tar.gz"`             |
+| Variable            | Description                                                               | Example                                                            |
+| ------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `ctx.tool`          | The tool name                                                             | `"prettier"`                                                       |
+| `ctx.version`       | The requested version                                                     | `"3.0.0"`                                                          |
+| `ctx.install_path`  | Installation directory                                                    | `"/home/user/.local/share/mise/installs/vfox-npm-prettier/3.0.0"`  |
+| `ctx.download_path` | Download directory                                                        | `"/home/user/.local/share/mise/downloads/vfox-npm-prettier/3.0.0"` |
+| `ctx.url`           | Pre-resolved download URL from lockfile or BackendPreInstall (may be nil) | `"https://example.com/tool-1.0.0-linux-amd64.tar.gz"`              |
 
 ### BackendPreInstall Context
 
@@ -280,13 +280,13 @@ Backend plugins receive context through the `ctx` parameter passed to each hook 
 
 **Return values:**
 
-| Field    | Description                          | Example                                  |
-| -------- | ------------------------------------ | ---------------------------------------- |
-| `url`    | Download URL for this platform       | `"https://example.com/tool-linux.tar.gz"` |
-| `sha256` | SHA-256 checksum (hex)               | `"e3b0c44298fc1c14..."`                   |
-| `sha512` | SHA-512 checksum (hex)               | `"cf83e1357eefb8bd..."`                   |
-| `sha1`   | SHA-1 checksum (hex)                 | `"da39a3ee5e6b4b0d..."`                   |
-| `md5`    | MD5 checksum (hex)                   | `"d41d8cd98f00b204..."`                   |
+| Field    | Description                    | Example                                   |
+| -------- | ------------------------------ | ----------------------------------------- |
+| `url`    | Download URL for this platform | `"https://example.com/tool-linux.tar.gz"` |
+| `sha256` | SHA-256 checksum (hex)         | `"e3b0c44298fc1c14..."`                   |
+| `sha512` | SHA-512 checksum (hex)         | `"cf83e1357eefb8bd..."`                   |
+| `sha1`   | SHA-1 checksum (hex)           | `"da39a3ee5e6b4b0d..."`                   |
+| `md5`    | MD5 checksum (hex)             | `"d41d8cd98f00b204..."`                   |
 
 All return fields are optional. When `RUNTIME.osType` / `RUNTIME.archType` are overridden by mise for cross-platform lockfile resolution, they reflect the **target** platform.
 
