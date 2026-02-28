@@ -112,6 +112,11 @@ impl Backend for VfoxBackend {
             Settings::get().ensure_experimental("custom backends")?;
             let tool_name = self.get_tool_name()?;
             let tool_opts = tv.request.options();
+            let platform_key = self.get_platform_key();
+            let locked_url = tv
+                .lock_platforms
+                .get(&platform_key)
+                .and_then(|p| p.url.clone());
             vfox.backend_install(
                 &self.pathname,
                 tool_name,
@@ -119,6 +124,7 @@ impl Backend for VfoxBackend {
                 tv.install_path(),
                 tv.download_path(),
                 tool_opts.opts_as_strings(),
+                locked_url,
             )
             .await
             .wrap_err("Backend install method failed")?;

@@ -12,6 +12,7 @@ pub struct BackendInstallContext {
     pub install_path: PathBuf,
     pub download_path: PathBuf,
     pub options: IndexMap<String, String>,
+    pub url: Option<String>,
 }
 
 #[derive(Debug)]
@@ -45,6 +46,9 @@ impl IntoLua for BackendInstallContext {
             self.download_path.to_string_lossy().to_string(),
         )?;
         table.set("options", lua.to_value(&self.options)?)?;
+        if let Some(url) = self.url {
+            table.set("url", url)?;
+        }
         Ok(Value::Table(table))
     }
 }

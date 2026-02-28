@@ -299,6 +299,7 @@ impl Vfox {
         install_path: PathBuf,
         download_path: PathBuf,
         options: IndexMap<String, String>,
+        url: Option<String>,
     ) -> Result<()> {
         let plugin = self.get_sdk(sdk)?;
         let ctx = BackendInstallContext {
@@ -307,6 +308,7 @@ impl Vfox {
             install_path,
             download_path,
             options,
+            url,
         };
         plugin.backend_install(ctx).await?;
         Ok(())
