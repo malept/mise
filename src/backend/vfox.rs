@@ -263,28 +263,9 @@ impl Backend for VfoxBackend {
 
         let (vfox, _log_rx) = self.plugin.vfox();
 
-        // Use BackendPreInstall hook for backend plugins if available
+        // Backend plugins use resolve_lock_info() directly, not get_tarball_url()
         if self.is_backend_plugin() {
-            let hook_path = self
-                .plugin
-                .plugin_path
-                .join("hooks/backend_pre_install.lua");
-            if !hook_path.exists() {
-                return Ok(None);
-            }
-            let tool_name = self.get_tool_name()?;
-            let tool_opts = tv.request.options();
-            let response = vfox
-                .backend_pre_install_for_platform(
-                    &self.pathname,
-                    tool_name,
-                    &tv.version,
-                    os,
-                    arch,
-                    tool_opts.opts.clone(),
-                )
-                .await?;
-            return Ok(response.url);
+            return Ok(None);
         }
 
         // Use default vfox behavior for traditional plugins
@@ -300,12 +281,56 @@ impl Backend for VfoxBackend {
         tv: &ToolVersion,
         target: &PlatformTarget,
     ) -> eyre::Result<PlatformInfo> {
-        // Backend plugins use backend_install and have no PreInstall hook;
-        // fall back to the default implementation.
+        // Backend plugins use BackendPreInstall hook if available
         if self.is_backend_plugin() {
+            let hook_path = self
+                .plugin
+                .plugin_path
+                .join("hooks/backend_pre_install.lua");
+            if hook_path.exists() {
+                let config = Config::get().await?;
+                self.ensure_plugin_installed(&config).await?;
+
+                let (os, arch) = Self::to_vfox_platform(target);
+
+                let (vfox, _log_rx) = self.plugin.vfox();
+                let tool_name = self.get_tool_name()?;
+                let tool_opts = tv.request.options();
+                let response = vfox
+                    .backend_pre_install_for_platform(
+                        &self.pathname,
+                        tool_name,
+                        &tv.version,
+                        os,
+                        arch,
+                        tool_opts.opts.clone(),
+                    )
+                    .await?;
+
+                // Convert BackendPreInstallResponse to PlatformInfo
+                let checksum = if let Some(sha256) = response.sha256 {
+                    Some(format!("sha256:{sha256}"))
+                } else if let Some(sha512) = response.sha512 {
+                    Some(format!("sha512:{sha512}"))
+                } else if let Some(sha1) = response.sha1 {
+                    Some(format!("sha1:{sha1}"))
+                } else if let Some(md5) = response.md5 {
+                    Some(format!("md5:{md5}"))
+                } else {
+                    None
+                };
+
+                return Ok(PlatformInfo {
+                    url: response.url,
+                    checksum,
+                    ..Default::default()
+                });
+            }
+            // Backend plugins without the hook fall back to default
             return Ok(PlatformInfo::default());
         }
 
+        // Traditional plugins: use provenance-aware pre_install
         let config = Config::get().await?;
         self.ensure_plugin_installed(&config).await?;
 
