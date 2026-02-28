@@ -18,11 +18,12 @@ Backend plugins extend the standard vfox plugin system with enhanced backend met
 
 Backend plugins are generally a git repository but can also be a directory (via `mise link`).
 
-Backend plugins are implemented in Lua (version 5.1 at the moment). They use three main backend methods implemented as individual files:
+Backend plugins are implemented in Lua (version 5.1 at the moment). They use three main backend methods implemented as individual files, plus one optional method:
 
 - `hooks/backend_list_versions.lua` - Lists available versions for a tool
 - `hooks/backend_install.lua` - Installs a specific version of a tool
 - `hooks/backend_exec_env.lua` - Sets up environment variables for a tool
+- `hooks/backend_pre_install.lua` _(optional)_ - Provides download URLs and checksums for lockfile support
 
 ## Backend Methods
 
@@ -64,6 +65,34 @@ function PLUGIN:BackendInstall(ctx)
     return {}
 end
 ```
+
+### BackendPreInstall (Optional)
+
+Provides download URLs and checksums for a tool version. When present, mise calls this hook during `mise use` / `mise install` to populate the lockfile with platform-specific asset information. The lockfile stores URLs and checksums so that future installs can verify integrity without re-querying the plugin.
+
+When this hook is called, `RUNTIME.osType` and `RUNTIME.archType` are set to the **target** platform (not necessarily the current host). Mise calls the hook once per platform so it can build a cross-platform lockfile.
+
+```lua
+function PLUGIN:BackendPreInstall(ctx)
+    local tool = ctx.tool
+    local version = ctx.version
+    local os_type = RUNTIME.osType   -- e.g. "linux", "darwin", "windows"
+    local arch_type = RUNTIME.archType -- e.g. "amd64", "arm64"
+
+    -- Construct the download URL for this platform
+    local url = "https://example.com/releases/" .. tool
+        .. "/" .. version .. "/" .. tool .. "-" .. os_type .. "-" .. arch_type .. ".tar.gz"
+
+    -- Return URL and any available checksums (all fields are optional)
+    return {
+        url = url,
+        sha256 = "abc123...",  -- optional
+        -- sha512, sha1, md5 are also supported
+    }
+end
+```
+
+If the hook returns a URL, it is also passed to `BackendInstall` via `ctx.url` so the install hook can use the pre-resolved (and potentially locked) URL instead of computing it again.
 
 ### BackendExecEnv
 
@@ -122,7 +151,8 @@ my-backend-plugin/
 ├── hooks/
 │   ├── backend_list_versions.lua   # BackendListVersions hook
 │   ├── backend_install.lua         # BackendInstall hook
-│   └── backend_exec_env.lua        # BackendExecEnv hook
+│   ├── backend_exec_env.lua        # BackendExecEnv hook
+│   └── backend_pre_install.lua     # BackendPreInstall hook (optional)
 └── Injection.lua                   # Runtime injection (auto-generated)
 ```
 
@@ -232,12 +262,33 @@ Backend plugins receive context through the `ctx` parameter passed to each hook 
 
 ### BackendInstall Context
 
-| Variable            | Description            | Example                                                            |
-| ------------------- | ---------------------- | ------------------------------------------------------------------ |
-| `ctx.tool`          | The tool name          | `"prettier"`                                                       |
-| `ctx.version`       | The requested version  | `"3.0.0"`                                                          |
-| `ctx.install_path`  | Installation directory | `"/home/user/.local/share/mise/installs/vfox-npm-prettier/3.0.0"`  |
-| `ctx.download_path` | Download directory     | `"/home/user/.local/share/mise/downloads/vfox-npm-prettier/3.0.0"` |
+| Variable            | Description                                                    | Example                                                            |
+| ------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `ctx.tool`          | The tool name                                                  | `"prettier"`                                                       |
+| `ctx.version`       | The requested version                                          | `"3.0.0"`                                                          |
+| `ctx.install_path`  | Installation directory                                         | `"/home/user/.local/share/mise/installs/vfox-npm-prettier/3.0.0"`  |
+| `ctx.download_path` | Download directory                                             | `"/home/user/.local/share/mise/downloads/vfox-npm-prettier/3.0.0"` |
+| `ctx.url`           | Pre-resolved download URL from lockfile or BackendPreInstall (may be nil) | `"https://example.com/tool-1.0.0-linux-amd64.tar.gz"`             |
+
+### BackendPreInstall Context
+
+| Variable      | Description                                              | Example      |
+| ------------- | -------------------------------------------------------- | ------------ |
+| `ctx.tool`    | The tool name                                            | `"prettier"` |
+| `ctx.version` | The requested version                                    | `"3.0.0"`    |
+| `ctx.options` | Custom options from mise config (same as BackendInstall) | `{}`         |
+
+**Return values:**
+
+| Field    | Description                          | Example                                  |
+| -------- | ------------------------------------ | ---------------------------------------- |
+| `url`    | Download URL for this platform       | `"https://example.com/tool-linux.tar.gz"` |
+| `sha256` | SHA-256 checksum (hex)               | `"e3b0c44298fc1c14..."`                   |
+| `sha512` | SHA-512 checksum (hex)               | `"cf83e1357eefb8bd..."`                   |
+| `sha1`   | SHA-1 checksum (hex)                 | `"da39a3ee5e6b4b0d..."`                   |
+| `md5`    | MD5 checksum (hex)                   | `"d41d8cd98f00b204..."`                   |
+
+All return fields are optional. When `RUNTIME.osType` / `RUNTIME.archType` are overridden by mise for cross-platform lockfile resolution, they reflect the **target** platform.
 
 ### BackendExecEnv Context
 
@@ -434,6 +485,32 @@ function PLUGIN:BackendExecEnv(ctx)
     }
 end
 ```
+
+### Lockfile Support
+
+Backend plugins that implement `BackendPreInstall` automatically get lockfile support. When a user runs `mise use` or `mise install` with `lockfile = true` in settings, mise will:
+
+1. Call `BackendPreInstall` once per supported platform (linux-x64, linux-arm64, macos-x64, macos-arm64, windows-x64)
+2. Store the returned URLs and checksums in `mise.lock.toml`
+3. On subsequent installs, use the locked URL and verify the checksum
+
+The lockfile entry looks like:
+
+```toml
+[tools."vfox-my-plugin:some-tool"."1.2.0"]
+backend = "vfox-my-plugin"
+version = "1.2.0"
+
+[tools."vfox-my-plugin:some-tool"."1.2.0".platforms."linux-x64"]
+url = "https://example.com/some-tool-1.2.0-linux-amd64.tar.gz"
+checksum = "sha256:e3b0c44298fc1c14..."
+
+[tools."vfox-my-plugin:some-tool"."1.2.0".platforms."macos-arm64"]
+url = "https://example.com/some-tool-1.2.0-darwin-arm64.tar.gz"
+checksum = "sha256:abc123..."
+```
+
+If `BackendPreInstall` is not implemented, the plugin still works but without lockfile platform entries (similar to npm packages where checksums aren't practical).
 
 ## Performance Optimization
 
