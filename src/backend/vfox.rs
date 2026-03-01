@@ -348,6 +348,7 @@ impl Backend for VfoxBackend {
 }
 
 impl VfoxBackend {
+    /// Whether this plugin uses backend hooks (plugin:tool format) vs traditional vfox hooks.
     fn is_backend_plugin(&self) -> bool {
         matches!(&self.plugin_enum, PluginEnum::VfoxBackend(_))
     }

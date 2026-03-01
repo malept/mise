@@ -7,6 +7,7 @@ use crate::Plugin;
 use crate::error::Result;
 use crate::runtime::Runtime;
 
+/// Input context for the `BackendPreInstall` Lua hook.
 #[derive(Debug, Clone)]
 pub struct BackendPreInstallContext {
     pub tool: String,
@@ -14,6 +15,7 @@ pub struct BackendPreInstallContext {
     pub options: IndexMap<String, String>,
 }
 
+/// Response from the `BackendPreInstall` Lua hook containing a download URL and optional checksums.
 #[derive(Debug, Default)]
 pub struct BackendPreInstallResponse {
     pub url: Option<String>,
@@ -24,6 +26,7 @@ pub struct BackendPreInstallResponse {
 }
 
 impl Plugin {
+    /// Call the plugin's `BackendPreInstall` hook using the host platform.
     pub async fn backend_pre_install(
         &self,
         ctx: BackendPreInstallContext,
@@ -36,6 +39,7 @@ impl Plugin {
         .await
     }
 
+    /// Call `BackendPreInstall` with `RUNTIME.osType`/`archType` overridden to the target platform.
     pub async fn backend_pre_install_for_platform(
         &self,
         ctx: BackendPreInstallContext,

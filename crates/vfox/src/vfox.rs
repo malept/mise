@@ -291,12 +291,14 @@ impl Vfox {
         plugin.backend_list_versions(ctx).await.map(|r| r.versions)
     }
 
+    /// Run the `BackendInstall` hook for a backend plugin.
     pub async fn backend_install(&self, sdk: &str, ctx: BackendInstallContext) -> Result<()> {
         let plugin = self.get_sdk(sdk)?;
         plugin.backend_install(ctx).await?;
         Ok(())
     }
 
+    /// Run `BackendPreInstall` for the given target platform to resolve a download URL and checksums.
     pub async fn backend_pre_install_for_platform(
         &self,
         sdk: &str,
