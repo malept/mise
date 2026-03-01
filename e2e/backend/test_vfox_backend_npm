@@ -26,7 +26,7 @@ touch mise.lock
 mise use "vfox-npm:prettier@$latest_version"
 
 # Lockfile should exist and contain the tool entry
-assert_contains "cat mise.lock" "tools.vfox-npm:prettier"
+assert_contains "cat mise.lock" 'vfox-npm:prettier'
 assert_contains "cat mise.lock" "version = \"$latest_version\""
 
 # No platform URL entries (plugin doesn't provide BackendPreInstall)

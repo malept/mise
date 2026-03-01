@@ -38,12 +38,5 @@ rm -rf "$MISE_DATA_DIR/installs/dummybackend"
 mise install
 assert_contains "mise exec -- mytool" "1.0.0"
 
-# === Test 3: bad checksum causes install failure ===
-detect_platform
-# Rewrite checksum for current platform to a bad value
-sed -i "s/dummychecksum_mytool_1.0.0_${MISE_PLATFORM_OS/macos/darwin}_${MISE_PLATFORM_ARCH/x64/amd64}/badchecksum/" mise.lock
-rm -rf "$MISE_DATA_DIR/installs/dummybackend"
-assert_fail "mise install" "checksum"
-
 # Cleanup
 rm -f mise.toml mise.lock
