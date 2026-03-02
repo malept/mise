@@ -15,7 +15,7 @@ pub struct BackendPreInstallContext {
     pub options: IndexMap<String, String>,
 }
 
-/// Response from the `BackendPreInstall` Lua hook containing a download URL, optional checksums, and size.
+/// Response from the `BackendPreInstall` Lua hook with download URL, checksums, and size.
 #[derive(Debug, Default)]
 pub struct BackendPreInstallResponse {
     pub url: Option<String>,
