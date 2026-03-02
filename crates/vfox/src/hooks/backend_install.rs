@@ -5,6 +5,16 @@ use mlua::{FromLua, IntoLua, Lua, LuaSerdeExt, Value, prelude::LuaError};
 
 use crate::{Plugin, error::Result};
 
+/// Lockfile asset metadata passed to the `BackendInstall` Lua hook.
+///
+/// Verification of checksum and size is the plugin's responsibility.
+#[derive(Debug, Default)]
+pub struct BackendInstallAsset {
+    pub url: Option<String>,
+    pub checksum: Option<String>,
+    pub size: Option<u64>,
+}
+
 #[derive(Debug)]
 pub struct BackendInstallContext {
     pub tool: String,
@@ -12,7 +22,7 @@ pub struct BackendInstallContext {
     pub install_path: PathBuf,
     pub download_path: PathBuf,
     pub options: IndexMap<String, String>,
-    pub url: Option<String>,
+    pub asset: BackendInstallAsset,
 }
 
 #[derive(Debug)]
@@ -46,8 +56,22 @@ impl IntoLua for BackendInstallContext {
             self.download_path.to_string_lossy().to_string(),
         )?;
         table.set("options", lua.to_value(&self.options)?)?;
+        table.set("asset", self.asset)?;
+        Ok(Value::Table(table))
+    }
+}
+
+impl IntoLua for BackendInstallAsset {
+    fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<Value> {
+        let table = lua.create_table()?;
         if let Some(url) = self.url {
             table.set("url", url)?;
+        }
+        if let Some(checksum) = self.checksum {
+            table.set("checksum", checksum)?;
+        }
+        if let Some(size) = self.size {
+            table.set("size", size)?;
         }
         Ok(Value::Table(table))
     }
