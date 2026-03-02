@@ -276,6 +276,7 @@ Backend plugins receive context through the `ctx` parameter passed to each hook 
 | `url`    | Download URL for this platform | `"https://example.com/tool-linux.tar.gz"` |
 | `sha256` | SHA-256 checksum (hex)         | `"e3b0c44298fc1c14..."`                   |
 | `sha512` | SHA-512 checksum (hex)         | `"cf83e1357eefb8bd..."`                   |
+| `size`   | File size in bytes             | `12345678`                                |
 
 All return fields are optional. `sha1` and `md5` are also accepted but `sha256` or `sha512` are preferred.
 

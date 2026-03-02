@@ -15,7 +15,7 @@ pub struct BackendPreInstallContext {
     pub options: IndexMap<String, String>,
 }
 
-/// Response from the `BackendPreInstall` Lua hook containing a download URL and optional checksums.
+/// Response from the `BackendPreInstall` Lua hook containing a download URL, optional checksums, and size.
 #[derive(Debug, Default)]
 pub struct BackendPreInstallResponse {
     pub url: Option<String>,
@@ -23,6 +23,7 @@ pub struct BackendPreInstallResponse {
     pub sha512: Option<String>,
     pub sha1: Option<String>,
     pub md5: Option<String>,
+    pub size: Option<u64>,
 }
 
 impl Plugin {
@@ -99,12 +100,25 @@ impl FromLua for BackendPreInstallResponse {
                             }),
                         }
                     };
+                let size = match table.get::<Value>("size")? {
+                    Value::Nil => None,
+                    Value::Integer(n) => Some(n as u64),
+                    Value::Number(n) => Some(n as u64),
+                    other => {
+                        return Err(LuaError::FromLuaConversionError {
+                            from: other.type_name(),
+                            to: "Option<u64>".to_string(),
+                            message: Some("Expected integer or nil for size".to_string()),
+                        });
+                    }
+                };
                 Ok(BackendPreInstallResponse {
                     url: get_optional_string("url")?,
                     sha256: get_optional_string("sha256")?,
                     sha512: get_optional_string("sha512")?,
                     sha1: get_optional_string("sha1")?,
                     md5: get_optional_string("md5")?,
+                    size,
                 })
             }
             _ => Err(LuaError::FromLuaConversionError {

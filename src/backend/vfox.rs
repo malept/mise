@@ -319,6 +319,7 @@ impl Backend for VfoxBackend {
                 return Ok(PlatformInfo {
                     url: response.url,
                     checksum,
+                    size: response.size,
                     ..Default::default()
                 });
             }

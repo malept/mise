@@ -703,6 +703,7 @@ mod tests {
             response.sha256.as_deref(),
             Some("dummychecksum_mytool_1.0.0_linux_amd64")
         );
+        assert_eq!(response.size, Some(12345678));
     }
 
     #[tokio::test]
@@ -727,6 +728,7 @@ mod tests {
             response.sha256.as_deref(),
             Some("dummychecksum_mytool_1.0.0_darwin_arm64")
         );
+        assert_eq!(response.size, Some(12345678));
     }
 
     #[tokio::test]
