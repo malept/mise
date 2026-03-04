@@ -106,11 +106,30 @@ ARCH_TYPE = ""
 ---@class BackendListVersionsResult
 ---@field versions string[] List of available versions
 
+---@class BackendPreInstallCtx
+---@field tool string Tool name
+---@field version string Requested version
+---@field options table Plugin options from mise.toml
+
+---@class BackendPreInstallResult
+---@field url? string Download URL for this platform
+---@field sha256? string SHA-256 checksum (hex)
+---@field sha512? string SHA-512 checksum (hex)
+---@field sha1? string SHA-1 checksum (hex)
+---@field md5? string MD5 checksum (hex)
+---@field size? integer File size in bytes
+
+---@class BackendInstallAsset
+---@field url? string Locked download URL from the lockfile
+---@field checksum? string Locked checksum from the lockfile (e.g. "sha256:abc123...")
+---@field size? integer Locked file size from the lockfile
+
 ---@class BackendInstallCtx
 ---@field tool string Tool name
 ---@field version string Version to install
 ---@field install_path string Path where the tool should be installed
 ---@field download_path string Path where the tool artifact should be downloaded
+---@field asset BackendInstallAsset Lockfile asset metadata (url, checksum, size); verification is the plugin's responsibility
 
 ---@class BackendInstallResult
 
@@ -132,6 +151,7 @@ ARCH_TYPE = ""
 ---@field MiseEnv? fun(self: Plugin, ctx: MiseEnvCtx): MiseEnvResult|EnvKey[]
 ---@field MisePath? fun(self: Plugin, ctx: MisePathCtx): string[]
 ---@field BackendListVersions? fun(self: Plugin, ctx: BackendListVersionsCtx): BackendListVersionsResult
+---@field BackendPreInstall? fun(self: Plugin, ctx: BackendPreInstallCtx): BackendPreInstallResult
 ---@field BackendInstall? fun(self: Plugin, ctx: BackendInstallCtx): BackendInstallResult
 ---@field BackendExecEnv? fun(self: Plugin, ctx: BackendExecEnvCtx): BackendExecEnvResult
 PLUGIN = {}
