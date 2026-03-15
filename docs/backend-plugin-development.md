@@ -83,7 +83,7 @@ function PLUGIN:BackendPreInstall(ctx)
 end
 ```
 
-If the hook returns a URL, it is also passed to `BackendInstall` via `ctx.url` so the install hook can use the pre-resolved (and potentially locked) URL instead of computing it again.
+If the hook returns a URL, it is also passed to `BackendInstall` via `ctx.asset.url` (along with `ctx.asset.checksum` and `ctx.asset.size` if provided) so the install hook can use the pre-resolved (and potentially locked) asset instead of computing it again.
 
 ### BackendExecEnv
 
