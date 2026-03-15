@@ -27,19 +27,6 @@ pub struct BackendPreInstallResponse {
 }
 
 impl Plugin {
-    /// Call the plugin's `BackendPreInstall` hook using the host platform.
-    pub async fn backend_pre_install(
-        &self,
-        ctx: BackendPreInstallContext,
-    ) -> Result<BackendPreInstallResponse> {
-        debug!("[vfox:{}] backend_pre_install", &self.name);
-        self.eval_async(chunk! {
-            require "hooks/backend_pre_install"
-            return PLUGIN:BackendPreInstall($ctx)
-        })
-        .await
-    }
-
     /// Call `BackendPreInstall` with `RUNTIME.osType`/`archType` overridden to the target platform.
     pub async fn backend_pre_install_for_platform(
         &self,
