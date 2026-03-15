@@ -1,10 +1,11 @@
 function PLUGIN:BackendInstall(ctx)
+	local cmd = require("cmd")
 	local tool = ctx.tool
 	local version = ctx.version
 	local install_path = ctx.install_path
 
 	-- Create bin directory
-	os.execute("mkdir -p " .. install_path .. "/bin")
+	cmd.exec("mkdir -p '" .. install_path .. "/bin'")
 
 	-- Create a dummy executable that prints the version
 	local bin_path = install_path .. "/bin/" .. tool
@@ -14,7 +15,7 @@ function PLUGIN:BackendInstall(ctx)
 		f:write('echo "' .. version .. '"\n')
 		f:close()
 	end
-	os.execute("chmod +x " .. bin_path)
+	cmd.exec("chmod +x '" .. bin_path .. "'")
 
 	return {}
 end
