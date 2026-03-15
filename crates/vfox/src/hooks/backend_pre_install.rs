@@ -102,8 +102,22 @@ impl FromLua for BackendPreInstallResponse {
                     };
                 let size = match table.get::<Value>("size")? {
                     Value::Nil => None,
-                    Value::Integer(n) => Some(n as u64),
-                    Value::Number(n) => Some(n as u64),
+                    Value::Integer(n) => {
+                        if n < 0 {
+                            warn!("BackendPreInstall returned negative size ({n}), ignoring");
+                            None
+                        } else {
+                            Some(n as u64)
+                        }
+                    }
+                    Value::Number(n) => {
+                        if n < 0.0 {
+                            warn!("BackendPreInstall returned negative size ({n}), ignoring");
+                            None
+                        } else {
+                            Some(n as u64)
+                        }
+                    }
                     other => {
                         return Err(LuaError::FromLuaConversionError {
                             from: other.type_name(),
@@ -127,5 +141,60 @@ impl FromLua for BackendPreInstallResponse {
                 message: Some("Expected table".to_string()),
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BackendPreInstallResponse;
+    use mlua::{FromLua, Lua};
+
+    #[test]
+    fn test_size_positive_integer() {
+        let lua = Lua::new();
+        let table = lua.create_table().unwrap();
+        table.set("url", "https://example.com/file.tar.gz").unwrap();
+        table.set("size", 12345).unwrap();
+        let resp = BackendPreInstallResponse::from_lua(mlua::Value::Table(table), &lua).unwrap();
+        assert_eq!(resp.size, Some(12345));
+    }
+
+    #[test]
+    fn test_size_nil() {
+        let lua = Lua::new();
+        let table = lua.create_table().unwrap();
+        table.set("url", "https://example.com/file.tar.gz").unwrap();
+        let resp = BackendPreInstallResponse::from_lua(mlua::Value::Table(table), &lua).unwrap();
+        assert_eq!(resp.size, None);
+    }
+
+    #[test]
+    fn test_size_negative_integer_returns_none() {
+        let lua = Lua::new();
+        let table = lua.create_table().unwrap();
+        table.set("url", "https://example.com/file.tar.gz").unwrap();
+        table.set("size", -1).unwrap();
+        let resp = BackendPreInstallResponse::from_lua(mlua::Value::Table(table), &lua).unwrap();
+        assert_eq!(resp.size, None);
+    }
+
+    #[test]
+    fn test_size_negative_float_returns_none() {
+        let lua = Lua::new();
+        let table = lua.create_table().unwrap();
+        table.set("url", "https://example.com/file.tar.gz").unwrap();
+        table.set("size", -3.5).unwrap();
+        let resp = BackendPreInstallResponse::from_lua(mlua::Value::Table(table), &lua).unwrap();
+        assert_eq!(resp.size, None);
+    }
+
+    #[test]
+    fn test_size_invalid_type_returns_error() {
+        let lua = Lua::new();
+        let table = lua.create_table().unwrap();
+        table.set("url", "https://example.com/file.tar.gz").unwrap();
+        table.set("size", "not_a_number").unwrap();
+        let result = BackendPreInstallResponse::from_lua(mlua::Value::Table(table), &lua);
+        assert!(result.is_err());
     }
 }
