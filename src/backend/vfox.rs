@@ -305,7 +305,7 @@ impl Backend for VfoxBackend {
                         &tv.version,
                         os,
                         arch,
-                        tool_opts.opts.clone(),
+                        tool_opts.opts_as_strings(),
                     )
                     .await?;
 
