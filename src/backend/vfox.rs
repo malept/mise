@@ -159,21 +159,21 @@ impl Backend for VfoxBackend {
                 )
                 .await?;
 
-            if response.attestation.is_some() {
-                if let Some(url) = &response.url {
-                    let params = response.verification_params();
-                    let (file, verified, cs_verified) = vfox
-                        .backend_download_and_verify(
-                            &self.pathname,
-                            url,
-                            &tv.version,
-                            &params,
-                        )
-                        .await?;
-                    verified_attestation = verified;
-                    checksum_verified = cs_verified;
-                    file_path = Some(file);
-                }
+            if response.attestation.is_some()
+                && let Some(url) = &response.url
+            {
+                let params = response.verification_params();
+                let (file, verified, cs_verified) = vfox
+                    .backend_download_and_verify(
+                        &self.pathname,
+                        url,
+                        &tv.version,
+                        &params,
+                    )
+                    .await?;
+                verified_attestation = verified;
+                checksum_verified = cs_verified;
+                file_path = Some(file);
             }
 
             let install_ctx = BackendInstallContext {
