@@ -394,8 +394,8 @@ impl Backend for VfoxBackend {
                 let (vfox, _log_rx) = self.plugin.vfox();
                 let tool_name = self.get_tool_name()?;
                 let tool_opts = tv.request.options();
-                let response = vfox
-                    .backend_pre_install_for_platform(
+                let (response, att) = vfox
+                    .backend_pre_install_provenance_for_platform(
                         &self.pathname,
                         tool_name,
                         &tv.version,
@@ -413,10 +413,13 @@ impl Backend for VfoxBackend {
                     .or_else(|| response.sha1.map(|v| format!("sha1:{v}")))
                     .or_else(|| response.md5.map(|v| format!("md5:{v}")));
 
+                let provenance = att.map(verified_attestation_to_provenance);
+
                 return Ok(PlatformInfo {
                     url: response.url,
                     checksum,
                     size: response.size,
+                    provenance,
                     ..Default::default()
                 });
             }
