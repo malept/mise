@@ -175,7 +175,7 @@ impl Backend for VfoxBackend {
                 }
 
                 if response.attestation.is_some()
-                    && let Some(url) = &response.url
+                    && let Some(url) = &asset_url
                 {
                     let params = response.verification_params();
                     let (file, verified, cs_verified) = vfox
