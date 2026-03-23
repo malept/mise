@@ -171,12 +171,7 @@ impl Backend for VfoxBackend {
                 {
                     let params = response.verification_params();
                     let (file, verified, cs_verified) = vfox
-                        .backend_download_and_verify(
-                            &self.pathname,
-                            url,
-                            &tv.version,
-                            &params,
-                        )
+                        .backend_download_and_verify(&self.pathname, url, &tv.version, &params)
                         .await?;
                     verified_attestation = verified;
                     checksum_verified = cs_verified;
@@ -201,38 +196,15 @@ impl Backend for VfoxBackend {
                 .await
                 .wrap_err("Backend install method failed")?;
 
-            // Record provenance if attestation verification succeeded
-            if let Some(att) = verified_attestation {
-                let provenance = verified_attestation_to_provenance(att);
-                let pi = tv.lock_platforms.entry(platform_key.clone()).or_default();
-                pi.provenance = Some(provenance);
-            } else if let Some(ref expected) = expected_provenance
-                && checksum_verified
-            {
-                // Attestation skipped but checksums verified — restore expected provenance
-                let pi = tv.lock_platforms.entry(platform_key.clone()).or_default();
-                pi.provenance = Some(expected.clone());
-            }
-
-            // Enforce lockfile provenance — prevent downgrade attacks
-            if let Some(ref expected) = expected_provenance {
-                let got = tv
-                    .lock_platforms
-                    .get(&platform_key)
-                    .and_then(|pi| pi.provenance.as_ref());
-                if !got.is_some_and(|g| {
-                    std::mem::discriminant(g) == std::mem::discriminant(expected)
-                }) {
-                    let got_str = got
-                        .map(|g| g.to_string())
-                        .unwrap_or_else(|| "no verification".to_string());
-                    return Err(eyre!(
-                        "Lockfile requires {expected} provenance for {tv} but {got_str} was used. \
-                         This may indicate a downgrade attack. Update the lockfile if the plugin's \
-                         attestation configuration has intentionally changed."
-                    ));
-                }
-            }
+            let tv_display = tv.to_string();
+            record_and_enforce_provenance(
+                &mut tv.lock_platforms,
+                &platform_key,
+                verified_attestation,
+                checksum_verified,
+                expected_provenance.as_ref(),
+                &tv_display,
+            )?;
 
             return Ok(tv);
         }
@@ -261,42 +233,15 @@ impl Backend for VfoxBackend {
             .install(&self.pathname, &tv.version, tv.install_path())
             .await?;
 
-        // Record provenance if attestation verification succeeded
-        if let Some(att) = result.verified_attestation {
-            let provenance = verified_attestation_to_provenance(att);
-            let pi = tv.lock_platforms.entry(platform_key.clone()).or_default();
-            pi.provenance = Some(provenance);
-        } else if let Some(ref expected) = expected_provenance
-            && result.checksum_verified
-        {
-            // Attestation didn't run or produced no result, but the plugin's checksums
-            // verified integrity. Restore expected provenance so the enforce check passes.
-            // When the plugin has no checksums, we leave got=None so the enforce check
-            // catches the missing attestation as a potential downgrade.
-            let pi = tv.lock_platforms.entry(platform_key.clone()).or_default();
-            pi.provenance = Some(expected.clone());
-        }
-
-        // Enforce lockfile provenance — prevent downgrade attacks.
-        // If a plugin removed its attestation config, got is None and this triggers.
-        // If attestation type changed, the discriminant mismatch triggers.
-        // If verification was skipped, expected was restored above so this passes.
-        if let Some(ref expected) = expected_provenance {
-            let got = tv
-                .lock_platforms
-                .get(&platform_key)
-                .and_then(|pi| pi.provenance.as_ref());
-            if !got.is_some_and(|g| std::mem::discriminant(g) == std::mem::discriminant(expected)) {
-                let got_str = got
-                    .map(|g| g.to_string())
-                    .unwrap_or_else(|| "no verification".to_string());
-                return Err(eyre!(
-                    "Lockfile requires {expected} provenance for {tv} but {got_str} was used. \
-                     This may indicate a downgrade attack. Update the lockfile if the plugin's \
-                     attestation configuration has intentionally changed."
-                ));
-            }
-        }
+        let tv_display = tv.to_string();
+        record_and_enforce_provenance(
+            &mut tv.lock_platforms,
+            &platform_key,
+            result.verified_attestation,
+            result.checksum_verified,
+            expected_provenance.as_ref(),
+            &tv_display,
+        )?;
 
         // Store checksum for rolling version tracking
         if let Some(sha256) = result.sha256
@@ -613,6 +558,55 @@ fn verified_attestation_to_provenance(att: vfox::VerifiedAttestation) -> Provena
         vfox::VerifiedAttestation::Slsa { .. } => ProvenanceType::Slsa { url: None },
         vfox::VerifiedAttestation::Cosign { .. } => ProvenanceType::Cosign,
     }
+}
+
+/// Record provenance from a verified attestation and enforce lockfile downgrade protection.
+///
+/// This is shared between the backend plugin and traditional plugin install paths.
+/// It performs two steps:
+/// 1. Records provenance if attestation succeeded, or restores expected provenance
+///    if checksums verified (attestation was skipped).
+/// 2. Enforces lockfile downgrade protection — if the lockfile had provenance but
+///    the current install lacks it (or changed type), this is a potential downgrade attack.
+fn record_and_enforce_provenance(
+    lock_platforms: &mut BTreeMap<String, PlatformInfo>,
+    platform_key: &str,
+    verified_attestation: Option<vfox::VerifiedAttestation>,
+    checksum_verified: bool,
+    expected_provenance: Option<&ProvenanceType>,
+    tv_display: &str,
+) -> eyre::Result<()> {
+    // Step 1: Record provenance
+    if let Some(att) = verified_attestation {
+        let provenance = verified_attestation_to_provenance(att);
+        let pi = lock_platforms.entry(platform_key.to_string()).or_default();
+        pi.provenance = Some(provenance);
+    } else if let Some(expected) = expected_provenance
+        && checksum_verified
+    {
+        // Attestation skipped but checksums verified — restore expected provenance
+        let pi = lock_platforms.entry(platform_key.to_string()).or_default();
+        pi.provenance = Some(expected.clone());
+    }
+
+    // Step 2: Enforce lockfile provenance — prevent downgrade attacks
+    if let Some(expected) = expected_provenance {
+        let got = lock_platforms
+            .get(platform_key)
+            .and_then(|pi| pi.provenance.as_ref());
+        if !got.is_some_and(|g| std::mem::discriminant(g) == std::mem::discriminant(expected)) {
+            let got_str = got
+                .map(|g| g.to_string())
+                .unwrap_or_else(|| "no verification".to_string());
+            return Err(eyre!(
+                "Lockfile requires {expected} provenance for {tv_display} but {got_str} was used. \
+                 This may indicate a downgrade attack. Update the lockfile if the plugin's \
+                 attestation configuration has intentionally changed."
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
