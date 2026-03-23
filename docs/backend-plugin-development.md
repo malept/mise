@@ -253,16 +253,16 @@ Backend plugins receive context through the `ctx` parameter passed to each hook 
 
 ### BackendInstall Context
 
-| Variable             | Description                                            | Example                                                            |
-| -------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
-| `ctx.tool`           | The tool name                                          | `"prettier"`                                                       |
-| `ctx.version`        | The requested version                                  | `"3.0.0"`                                                          |
-| `ctx.install_path`   | Installation directory                                 | `"/home/user/.local/share/mise/installs/vfox-npm-prettier/3.0.0"`  |
-| `ctx.download_path`  | Download directory                                     | `"/home/user/.local/share/mise/downloads/vfox-npm-prettier/3.0.0"` |
-| `ctx.asset.url`      | Locked download URL from lockfile (may be nil)         | `"https://example.com/tool-1.0.0-linux-amd64.tar.gz"`              |
-| `ctx.asset.checksum` | Expected checksum in `"algo:hash"` format (may be nil) | `"sha256:e3b0c44298fc1c14..."`                                     |
-| `ctx.asset.size`     | Expected file size in bytes (may be nil)               | `12345678`                                                         |
-| `ctx.asset.file`     | Local file path when mise downloaded + verified (may be nil) | `"/tmp/.../tool-1.0.0.tar.gz"`                               |
+| Variable             | Description                                                  | Example                                                            |
+| -------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------ |
+| `ctx.tool`           | The tool name                                                | `"prettier"`                                                       |
+| `ctx.version`        | The requested version                                        | `"3.0.0"`                                                          |
+| `ctx.install_path`   | Installation directory                                       | `"/home/user/.local/share/mise/installs/vfox-npm-prettier/3.0.0"`  |
+| `ctx.download_path`  | Download directory                                           | `"/home/user/.local/share/mise/downloads/vfox-npm-prettier/3.0.0"` |
+| `ctx.asset.url`      | Locked download URL from lockfile (may be nil)               | `"https://example.com/tool-1.0.0-linux-amd64.tar.gz"`              |
+| `ctx.asset.checksum` | Expected checksum in `"algo:hash"` format (may be nil)       | `"sha256:e3b0c44298fc1c14..."`                                     |
+| `ctx.asset.size`     | Expected file size in bytes (may be nil)                     | `12345678`                                                         |
+| `ctx.asset.file`     | Local file path when mise downloaded + verified (may be nil) | `"/tmp/.../tool-1.0.0.tar.gz"`                                     |
 
 > **Note:** Checksum and size verification is the plugin's responsibility. Mise passes the lockfile values through `ctx.asset` but does not automatically verify downloaded files for backend plugins. If your plugin downloads a file, compare its hash/size against `ctx.asset.checksum` and `ctx.asset.size` when present.
 >
@@ -321,15 +321,15 @@ end
 
 Supported attestation fields (same as traditional plugins):
 
-| Field                        | Description                                  |
-| ---------------------------- | -------------------------------------------- |
-| `github_owner`               | GitHub org/owner (requires `github_repo`)    |
-| `github_repo`                | GitHub repository (requires `github_owner`)  |
-| `github_signer_workflow`     | Expected workflow (requires both above)      |
-| `cosign_sig_or_bundle_path`  | Path to cosign signature or bundle           |
-| `cosign_public_key_path`     | Path to cosign public key (optional)         |
-| `slsa_provenance_path`       | Path to SLSA provenance file                 |
-| `slsa_min_level`             | Minimum SLSA level (default: 1)              |
+| Field                       | Description                                 |
+| --------------------------- | ------------------------------------------- |
+| `github_owner`              | GitHub org/owner (requires `github_repo`)   |
+| `github_repo`               | GitHub repository (requires `github_owner`) |
+| `github_signer_workflow`    | Expected workflow (requires both above)     |
+| `cosign_sig_or_bundle_path` | Path to cosign signature or bundle          |
+| `cosign_public_key_path`    | Path to cosign public key (optional)        |
+| `slsa_provenance_path`      | Path to SLSA provenance file                |
+| `slsa_min_level`            | Minimum SLSA level (default: 1)             |
 
 ### BackendExecEnv Context
 
