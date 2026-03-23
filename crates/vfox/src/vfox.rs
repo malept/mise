@@ -20,6 +20,7 @@ use crate::hooks::mise_path::MisePathContext;
 use crate::hooks::parse_legacy_file::ParseLegacyFileResponse;
 use crate::hooks::post_install::PostInstallContext;
 use crate::hooks::pre_install::{PreInstall, PreInstallAttestation, VerifiedAttestation};
+use crate::hooks::verification::VerificationParams;
 use crate::http::CLIENT;
 use crate::metadata::Metadata;
 use crate::plugin::Plugin;
@@ -179,7 +180,8 @@ impl Vfox {
         let mut checksum_verified = false;
         if let Some(url) = pre_install.url.as_ref().map(|s| Url::from_str(s)) {
             let file = self.download(&url?, &sdk, version).await?;
-            verified_attestation = self.verify(&pre_install, &file).await?;
+            let params = pre_install.verification_params();
+            verified_attestation = self.verify(&params, &file).await?;
             self.extract(&file, install_dir)?;
             // Note: sha1/md5 intentionally excluded — they are unimplemented! and
             // not considered strong enough to satisfy the checksum_verified semantic.
@@ -384,27 +386,27 @@ impl Vfox {
 
     async fn verify(
         &self,
-        pre_install: &PreInstall,
+        params: &VerificationParams,
         file: &Path,
     ) -> Result<Option<VerifiedAttestation>> {
         self.log_emit(format!("Verifying {file:?} checksum"));
-        if let Some(sha256) = &pre_install.sha256 {
+        if let Some(sha256) = &params.sha256 {
             xx::hash::ensure_checksum_sha256(file, sha256)?;
         }
-        if let Some(sha512) = &pre_install.sha512 {
+        if let Some(sha512) = &params.sha512 {
             xx::hash::ensure_checksum_sha512(file, sha512)?;
         }
-        if let Some(_sha1) = &pre_install.sha1 {
+        if let Some(_sha1) = &params.sha1 {
             unimplemented!("sha1")
         }
-        if let Some(_md5) = &pre_install.md5 {
+        if let Some(_md5) = &params.md5 {
             unimplemented!("md5")
         }
         let mut verified: Option<VerifiedAttestation> = None;
         // Only skip attestation verification when the plugin provides a checksum
         // (sha256/sha512) — otherwise there would be no integrity check at all.
-        let has_checksum = pre_install.sha256.is_some() || pre_install.sha512.is_some();
-        if let Some(attestation) = &pre_install.attestation
+        let has_checksum = params.sha256.is_some() || params.sha512.is_some();
+        if let Some(attestation) = &params.attestation
             && !(self.skip_verification && has_checksum)
         {
             self.log_emit(format!("Verify {file:?} attestation"));
