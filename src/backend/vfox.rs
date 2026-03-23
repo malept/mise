@@ -128,52 +128,60 @@ impl Backend for VfoxBackend {
                 .and_then(|p| p.checksum.clone());
             let lock_size = tv.lock_platforms.get(&platform_key).and_then(|p| p.size);
 
-            // Skip attestation re-verification when lockfile already has provenance
-            let has_lockfile_provenance = tv
-                .lock_platforms
-                .get(&platform_key)
-                .is_some_and(|pi| pi.provenance.is_some());
-            vfox.skip_verification = has_lockfile_provenance;
-
-            // Save and clear expected provenance for downgrade detection
-            let expected_provenance = tv
-                .lock_platforms
-                .get_mut(&platform_key)
-                .and_then(|pi| pi.provenance.take());
-
-            // Check if plugin declares attestation — if so, Rust downloads + verifies
+            // Only run provenance logic if the plugin has a BackendPreInstall hook.
+            // BackendPreInstall is optional — plugins without it just use BackendInstall directly.
+            let hook_path = self
+                .plugin
+                .plugin_path
+                .join("hooks/backend_pre_install.lua");
             let mut verified_attestation = None;
             let mut checksum_verified = false;
             let mut file_path: Option<PathBuf> = None;
+            let mut expected_provenance = None;
 
-            let target = PlatformTarget::from_current();
-            let (os, arch) = Self::to_vfox_platform(&target);
-            let response = vfox
-                .backend_pre_install_for_platform(
-                    &self.pathname,
-                    tool_name,
-                    &tv.version,
-                    os,
-                    arch,
-                    tool_opts.opts_as_strings(),
-                )
-                .await?;
+            if hook_path.exists() {
+                // Skip attestation re-verification when lockfile already has provenance
+                let has_lockfile_provenance = tv
+                    .lock_platforms
+                    .get(&platform_key)
+                    .is_some_and(|pi| pi.provenance.is_some());
+                vfox.skip_verification = has_lockfile_provenance;
 
-            if response.attestation.is_some()
-                && let Some(url) = &response.url
-            {
-                let params = response.verification_params();
-                let (file, verified, cs_verified) = vfox
-                    .backend_download_and_verify(
+                // Save and clear expected provenance for downgrade detection
+                expected_provenance = tv
+                    .lock_platforms
+                    .get_mut(&platform_key)
+                    .and_then(|pi| pi.provenance.take());
+
+                let target = PlatformTarget::from_current();
+                let (os, arch) = Self::to_vfox_platform(&target);
+                let response = vfox
+                    .backend_pre_install_for_platform(
                         &self.pathname,
-                        url,
+                        tool_name,
                         &tv.version,
-                        &params,
+                        os,
+                        arch,
+                        tool_opts.opts_as_strings(),
                     )
                     .await?;
-                verified_attestation = verified;
-                checksum_verified = cs_verified;
-                file_path = Some(file);
+
+                if response.attestation.is_some()
+                    && let Some(url) = &response.url
+                {
+                    let params = response.verification_params();
+                    let (file, verified, cs_verified) = vfox
+                        .backend_download_and_verify(
+                            &self.pathname,
+                            url,
+                            &tv.version,
+                            &params,
+                        )
+                        .await?;
+                    verified_attestation = verified;
+                    checksum_verified = cs_verified;
+                    file_path = Some(file);
+                }
             }
 
             let install_ctx = BackendInstallContext {
