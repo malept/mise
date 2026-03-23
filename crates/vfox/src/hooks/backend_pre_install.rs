@@ -5,6 +5,7 @@ use mlua::{FromLua, IntoLua, Lua, LuaSerdeExt, Value};
 
 use crate::Plugin;
 use crate::error::Result;
+use crate::hooks::pre_install::PreInstallAttestation;
 use crate::runtime::Runtime;
 
 /// Input context for the `BackendPreInstall` Lua hook.
@@ -24,6 +25,7 @@ pub struct BackendPreInstallResponse {
     pub sha1: Option<String>,
     pub md5: Option<String>,
     pub size: Option<u64>,
+    pub attestation: Option<PreInstallAttestation>,
 }
 
 impl Plugin {
@@ -113,6 +115,8 @@ impl FromLua for BackendPreInstallResponse {
                         });
                     }
                 };
+                let attestation: Option<PreInstallAttestation> =
+                    table.get::<Option<PreInstallAttestation>>("attestation")?;
                 Ok(BackendPreInstallResponse {
                     url: get_optional_string("url")?,
                     sha256: get_optional_string("sha256")?,
@@ -120,6 +124,7 @@ impl FromLua for BackendPreInstallResponse {
                     sha1: get_optional_string("sha1")?,
                     md5: get_optional_string("md5")?,
                     size,
+                    attestation,
                 })
             }
             _ => Err(LuaError::FromLuaConversionError {
@@ -127,6 +132,19 @@ impl FromLua for BackendPreInstallResponse {
                 to: "BackendPreInstallResponse".to_string(),
                 message: Some("Expected table".to_string()),
             }),
+        }
+    }
+}
+
+impl BackendPreInstallResponse {
+    /// Extract the verification-relevant fields into a shared struct.
+    pub fn verification_params(&self) -> crate::hooks::verification::VerificationParams {
+        crate::hooks::verification::VerificationParams {
+            sha256: self.sha256.clone(),
+            sha512: self.sha512.clone(),
+            sha1: self.sha1.clone(),
+            md5: self.md5.clone(),
+            attestation: self.attestation.clone(),
         }
     }
 }
@@ -181,6 +199,45 @@ mod tests {
         let table = lua.create_table().unwrap();
         table.set("url", "https://example.com/file.tar.gz").unwrap();
         table.set("size", "not_a_number").unwrap();
+        let result = BackendPreInstallResponse::from_lua(mlua::Value::Table(table), &lua);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_attestation_github() {
+        let lua = Lua::new();
+        let table = lua.create_table().unwrap();
+        table.set("url", "https://example.com/file.tar.gz").unwrap();
+        table.set("sha256", "abc123").unwrap();
+        let att_table = lua.create_table().unwrap();
+        att_table.set("github_owner", "myorg").unwrap();
+        att_table.set("github_repo", "mytool").unwrap();
+        table.set("attestation", att_table).unwrap();
+        let resp = BackendPreInstallResponse::from_lua(mlua::Value::Table(table), &lua).unwrap();
+        assert!(resp.attestation.is_some());
+        let att = resp.attestation.unwrap();
+        assert_eq!(att.github_owner.as_deref(), Some("myorg"));
+        assert_eq!(att.github_repo.as_deref(), Some("mytool"));
+    }
+
+    #[test]
+    fn test_attestation_nil() {
+        let lua = Lua::new();
+        let table = lua.create_table().unwrap();
+        table.set("url", "https://example.com/file.tar.gz").unwrap();
+        let resp = BackendPreInstallResponse::from_lua(mlua::Value::Table(table), &lua).unwrap();
+        assert!(resp.attestation.is_none());
+    }
+
+    #[test]
+    fn test_attestation_validation_error() {
+        let lua = Lua::new();
+        let table = lua.create_table().unwrap();
+        table.set("url", "https://example.com/file.tar.gz").unwrap();
+        let att_table = lua.create_table().unwrap();
+        att_table.set("github_owner", "myorg").unwrap();
+        // Missing github_repo — should fail validation
+        table.set("attestation", att_table).unwrap();
         let result = BackendPreInstallResponse::from_lua(mlua::Value::Table(table), &lua);
         assert!(result.is_err());
     }
