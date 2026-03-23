@@ -118,15 +118,11 @@ impl Backend for VfoxBackend {
             // Extract lockfile fields into local variables BEFORE any mutable borrow.
             // This avoids a borrow-checker conflict between the immutable .get() and
             // the later .get_mut() / .entry() calls on tv.lock_platforms.
-            let lock_url = tv
-                .lock_platforms
-                .get(&platform_key)
-                .and_then(|p| p.url.clone());
-            let lock_checksum = tv
-                .lock_platforms
-                .get(&platform_key)
-                .and_then(|p| p.checksum.clone());
-            let lock_size = tv.lock_platforms.get(&platform_key).and_then(|p| p.size);
+            let locked = tv.lock_platforms.get(&platform_key);
+            let lock_url = locked.and_then(|p| p.url.clone());
+            let lock_checksum = locked.and_then(|p| p.checksum.clone());
+            let lock_size = locked.and_then(|p| p.size);
+            let has_lockfile_provenance = locked.is_some_and(|p| p.provenance.is_some());
 
             // Only run provenance logic if the plugin has a BackendPreInstall hook.
             // BackendPreInstall is optional — plugins without it just use BackendInstall directly.
@@ -140,11 +136,6 @@ impl Backend for VfoxBackend {
             let mut expected_provenance = None;
 
             if hook_path.exists() {
-                // Skip attestation re-verification when lockfile already has provenance
-                let has_lockfile_provenance = tv
-                    .lock_platforms
-                    .get(&platform_key)
-                    .is_some_and(|pi| pi.provenance.is_some());
                 vfox.skip_verification = has_lockfile_provenance;
 
                 // Save and clear expected provenance for downgrade detection
