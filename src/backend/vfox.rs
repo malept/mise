@@ -359,12 +359,12 @@ impl Backend for VfoxBackend {
                     .await?;
 
                 // Convert BackendPreInstallResponse to PlatformInfo
-                let checksum = response
-                    .sha256
-                    .map(|v| format!("sha256:{v}"))
-                    .or_else(|| response.sha512.map(|v| format!("sha512:{v}")))
-                    .or_else(|| response.sha1.map(|v| format!("sha1:{v}")))
-                    .or_else(|| response.md5.map(|v| format!("md5:{v}")));
+                let checksum = format_checksum(
+                    response.sha256.as_deref(),
+                    response.sha512.as_deref(),
+                    response.sha1.as_deref(),
+                    response.md5.as_deref(),
+                );
 
                 let provenance = att.map(verified_attestation_to_provenance);
 
@@ -546,6 +546,20 @@ impl VfoxBackend {
             .ensure_installed(config, &MultiProgressReport::get(), false, false)
             .await
     }
+}
+
+/// Format the best available checksum from a BackendPreInstallResponse into `algo:hex` form.
+fn format_checksum(
+    sha256: Option<&str>,
+    sha512: Option<&str>,
+    sha1: Option<&str>,
+    md5: Option<&str>,
+) -> Option<String> {
+    sha256
+        .map(|v| format!("sha256:{v}"))
+        .or_else(|| sha512.map(|v| format!("sha512:{v}")))
+        .or_else(|| sha1.map(|v| format!("sha1:{v}")))
+        .or_else(|| md5.map(|v| format!("md5:{v}")))
 }
 
 /// Convert a verified attestation from the vfox crate into the lockfile provenance type.
