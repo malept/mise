@@ -87,7 +87,7 @@ pub enum VerifiedAttestation {
 }
 
 /// Optional attestation parameters provided by the return value of the preinstall hook.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PreInstallAttestation {
     // GitHub
     pub github_owner: Option<String>,
@@ -239,6 +239,19 @@ impl FromLua for PreInstall {
                 })
             }
             _ => panic!("Expected table"),
+        }
+    }
+}
+
+impl PreInstall {
+    /// Extract the verification-relevant fields into a shared struct.
+    pub fn verification_params(&self) -> super::verification::VerificationParams {
+        super::verification::VerificationParams {
+            sha256: self.sha256.clone(),
+            sha512: self.sha512.clone(),
+            sha1: self.sha1.clone(),
+            md5: self.md5.clone(),
+            attestation: self.attestation.clone(),
         }
     }
 }
