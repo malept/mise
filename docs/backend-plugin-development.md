@@ -262,8 +262,25 @@ Backend plugins receive context through the `ctx` parameter passed to each hook 
 | `ctx.asset.url`      | Locked download URL from lockfile (may be nil)         | `"https://example.com/tool-1.0.0-linux-amd64.tar.gz"`              |
 | `ctx.asset.checksum` | Expected checksum in `"algo:hash"` format (may be nil) | `"sha256:e3b0c44298fc1c14..."`                                     |
 | `ctx.asset.size`     | Expected file size in bytes (may be nil)               | `12345678`                                                         |
+| `ctx.asset.file`     | Local file path when mise downloaded + verified (may be nil) | `"/tmp/.../tool-1.0.0.tar.gz"`                               |
 
 > **Note:** Checksum and size verification is the plugin's responsibility. Mise passes the lockfile values through `ctx.asset` but does not automatically verify downloaded files for backend plugins. If your plugin downloads a file, compare its hash/size against `ctx.asset.checksum` and `ctx.asset.size` when present.
+>
+> **Exception:** When attestation is declared in `BackendPreInstall`, mise downloads and verifies the file itself (checksums + sigstore attestation). In this case `ctx.asset.file` contains the verified local path and the plugin should use it directly instead of downloading again.
+
+When attestation is declared in `BackendPreInstall`, mise downloads and verifies the file
+before calling `BackendInstall`. The plugin receives the verified file path in `ctx.asset.file`:
+
+```lua
+function PLUGIN:BackendInstall(ctx)
+    local file = ctx.asset.file  -- non-nil if mise downloaded + verified
+    if not file then
+        -- No attestation — plugin handles download
+        file = http.download({ url = ctx.asset.url })
+    end
+    archiver.decompress({ src = file, dest = ctx.install_path })
+end
+```
 
 ### BackendPreInstall Context
 
@@ -283,6 +300,36 @@ Backend plugins receive context through the `ctx` parameter passed to each hook 
 | `size`   | File size in bytes (negative values are ignored) | `12345678`                                |
 
 All return fields are optional. `sha1` and `md5` are also accepted but `sha256` or `sha512` are preferred.
+
+#### Attestation (Optional)
+
+Backend plugins can declare attestation parameters to enable Rust-side cryptographic verification. When attestation is declared, mise downloads the file, verifies checksums and attestation, then passes the verified local file path to `BackendInstall` via `ctx.asset.file`.
+
+```lua
+function PLUGIN:BackendPreInstall(ctx)
+    return {
+        url = "https://github.com/org/tool/releases/download/v" .. ctx.version .. "/tool.tar.gz",
+        sha256 = "abc123...",
+        attestation = {
+            github_owner = "org",
+            github_repo = "tool",
+            -- Optional: github_signer_workflow = ".github/workflows/release.yml"
+        },
+    }
+end
+```
+
+Supported attestation fields (same as traditional plugins):
+
+| Field                        | Description                                  |
+| ---------------------------- | -------------------------------------------- |
+| `github_owner`               | GitHub org/owner (requires `github_repo`)    |
+| `github_repo`                | GitHub repository (requires `github_owner`)  |
+| `github_signer_workflow`     | Expected workflow (requires both above)      |
+| `cosign_sig_or_bundle_path`  | Path to cosign signature or bundle           |
+| `cosign_public_key_path`     | Path to cosign public key (optional)         |
+| `slsa_provenance_path`       | Path to SLSA provenance file                 |
+| `slsa_min_level`             | Minimum SLSA level (default: 1)              |
 
 ### BackendExecEnv Context
 
