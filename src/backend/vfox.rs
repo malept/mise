@@ -112,7 +112,7 @@ impl Backend for VfoxBackend {
         if self.is_backend_plugin() {
             Settings::get().ensure_experimental("custom backends")?;
             let tool_name = self.get_tool_name()?;
-            let tool_opts = tv.request.options();
+            let tool_opts = tv.request.options().opts_as_strings();
             let platform_key = self.get_platform_key();
 
             // Extract lockfile fields into local variables BEFORE any mutable borrow.
@@ -153,7 +153,7 @@ impl Backend for VfoxBackend {
                         &tv.version,
                         os,
                         arch,
-                        tool_opts.opts_as_strings(),
+                        tool_opts.clone(),
                     )
                     .await?;
 
@@ -175,7 +175,7 @@ impl Backend for VfoxBackend {
                 version: tv.version.clone(),
                 install_path: tv.install_path(),
                 download_path: tv.download_path(),
-                options: tool_opts.opts_as_strings(),
+                options: tool_opts,
                 asset: BackendInstallAsset {
                     url: lock_url,
                     checksum: lock_checksum,
