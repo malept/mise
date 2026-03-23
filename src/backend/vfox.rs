@@ -119,9 +119,9 @@ impl Backend for VfoxBackend {
             // This avoids a borrow-checker conflict between the immutable .get() and
             // the later .get_mut() / .entry() calls on tv.lock_platforms.
             let locked = tv.lock_platforms.get(&platform_key);
-            let lock_url = locked.and_then(|p| p.url.clone());
-            let lock_checksum = locked.and_then(|p| p.checksum.clone());
-            let lock_size = locked.and_then(|p| p.size);
+            let mut asset_url = locked.and_then(|p| p.url.clone());
+            let mut asset_checksum = locked.and_then(|p| p.checksum.clone());
+            let mut asset_size = locked.and_then(|p| p.size);
             let has_lockfile_provenance = locked.is_some_and(|p| p.provenance.is_some());
 
             // Only run provenance logic if the plugin has a BackendPreInstall hook.
@@ -157,6 +157,23 @@ impl Backend for VfoxBackend {
                     )
                     .await?;
 
+                // Fall back to pre-install response values when lockfile has no entry yet
+                // (e.g., first install before lockfile is written, or MISE_LOCKFILE=0).
+                if asset_url.is_none() {
+                    asset_url = response.url.clone();
+                }
+                if asset_checksum.is_none() {
+                    asset_checksum = format_checksum(
+                        response.sha256.as_deref(),
+                        response.sha512.as_deref(),
+                        response.sha1.as_deref(),
+                        response.md5.as_deref(),
+                    );
+                }
+                if asset_size.is_none() {
+                    asset_size = response.size;
+                }
+
                 if response.attestation.is_some()
                     && let Some(url) = &response.url
                 {
@@ -177,9 +194,9 @@ impl Backend for VfoxBackend {
                 download_path: tv.download_path(),
                 options: tool_opts,
                 asset: BackendInstallAsset {
-                    url: lock_url,
-                    checksum: lock_checksum,
-                    size: lock_size,
+                    url: asset_url,
+                    checksum: asset_checksum,
+                    size: asset_size,
                     file: file_path,
                 },
             };
