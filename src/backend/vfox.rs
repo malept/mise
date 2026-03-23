@@ -125,6 +125,7 @@ impl Backend for VfoxBackend {
                     url: platform_info.and_then(|p| p.url.clone()),
                     checksum: platform_info.and_then(|p| p.checksum.clone()),
                     size: platform_info.and_then(|p| p.size),
+                    file: None,
                 },
             };
             vfox.backend_install(&self.pathname, install_ctx)

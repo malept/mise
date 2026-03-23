@@ -13,6 +13,9 @@ pub struct BackendInstallAsset {
     pub url: Option<String>,
     pub checksum: Option<String>,
     pub size: Option<u64>,
+    /// Local file path when mise downloaded and verified the file (attestation declared).
+    /// `None` when the plugin handles its own download.
+    pub file: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -72,6 +75,9 @@ impl IntoLua for BackendInstallAsset {
         }
         if let Some(size) = self.size {
             table.set("size", size)?;
+        }
+        if let Some(file) = self.file {
+            table.set("file", file.to_string_lossy().to_string())?;
         }
         Ok(Value::Table(table))
     }
