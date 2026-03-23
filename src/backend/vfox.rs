@@ -114,7 +114,68 @@ impl Backend for VfoxBackend {
             let tool_name = self.get_tool_name()?;
             let tool_opts = tv.request.options();
             let platform_key = self.get_platform_key();
-            let platform_info = tv.lock_platforms.get(&platform_key);
+
+            // Extract lockfile fields into local variables BEFORE any mutable borrow.
+            // This avoids a borrow-checker conflict between the immutable .get() and
+            // the later .get_mut() / .entry() calls on tv.lock_platforms.
+            let lock_url = tv
+                .lock_platforms
+                .get(&platform_key)
+                .and_then(|p| p.url.clone());
+            let lock_checksum = tv
+                .lock_platforms
+                .get(&platform_key)
+                .and_then(|p| p.checksum.clone());
+            let lock_size = tv.lock_platforms.get(&platform_key).and_then(|p| p.size);
+
+            // Skip attestation re-verification when lockfile already has provenance
+            let has_lockfile_provenance = tv
+                .lock_platforms
+                .get(&platform_key)
+                .is_some_and(|pi| pi.provenance.is_some());
+            vfox.skip_verification = has_lockfile_provenance;
+
+            // Save and clear expected provenance for downgrade detection
+            let expected_provenance = tv
+                .lock_platforms
+                .get_mut(&platform_key)
+                .and_then(|pi| pi.provenance.take());
+
+            // Check if plugin declares attestation — if so, Rust downloads + verifies
+            let mut verified_attestation = None;
+            let mut checksum_verified = false;
+            let mut file_path: Option<PathBuf> = None;
+
+            let target = PlatformTarget::from_current();
+            let (os, arch) = Self::to_vfox_platform(&target);
+            let response = vfox
+                .backend_pre_install_for_platform(
+                    &self.pathname,
+                    tool_name,
+                    &tv.version,
+                    os,
+                    arch,
+                    tool_opts.opts_as_strings(),
+                )
+                .await?;
+
+            if response.attestation.is_some() {
+                if let Some(url) = &response.url {
+                    let params = response.verification_params();
+                    let (file, verified, cs_verified) = vfox
+                        .backend_download_and_verify(
+                            &self.pathname,
+                            url,
+                            &tv.version,
+                            &params,
+                        )
+                        .await?;
+                    verified_attestation = verified;
+                    checksum_verified = cs_verified;
+                    file_path = Some(file);
+                }
+            }
+
             let install_ctx = BackendInstallContext {
                 tool: tool_name.to_string(),
                 version: tv.version.clone(),
@@ -122,15 +183,49 @@ impl Backend for VfoxBackend {
                 download_path: tv.download_path(),
                 options: tool_opts.opts_as_strings(),
                 asset: BackendInstallAsset {
-                    url: platform_info.and_then(|p| p.url.clone()),
-                    checksum: platform_info.and_then(|p| p.checksum.clone()),
-                    size: platform_info.and_then(|p| p.size),
-                    file: None,
+                    url: lock_url,
+                    checksum: lock_checksum,
+                    size: lock_size,
+                    file: file_path,
                 },
             };
             vfox.backend_install(&self.pathname, install_ctx)
                 .await
                 .wrap_err("Backend install method failed")?;
+
+            // Record provenance if attestation verification succeeded
+            if let Some(att) = verified_attestation {
+                let provenance = verified_attestation_to_provenance(att);
+                let pi = tv.lock_platforms.entry(platform_key.clone()).or_default();
+                pi.provenance = Some(provenance);
+            } else if let Some(ref expected) = expected_provenance
+                && checksum_verified
+            {
+                // Attestation skipped but checksums verified — restore expected provenance
+                let pi = tv.lock_platforms.entry(platform_key.clone()).or_default();
+                pi.provenance = Some(expected.clone());
+            }
+
+            // Enforce lockfile provenance — prevent downgrade attacks
+            if let Some(ref expected) = expected_provenance {
+                let got = tv
+                    .lock_platforms
+                    .get(&platform_key)
+                    .and_then(|pi| pi.provenance.as_ref());
+                if !got.is_some_and(|g| {
+                    std::mem::discriminant(g) == std::mem::discriminant(expected)
+                }) {
+                    let got_str = got
+                        .map(|g| g.to_string())
+                        .unwrap_or_else(|| "no verification".to_string());
+                    return Err(eyre!(
+                        "Lockfile requires {expected} provenance for {tv} but {got_str} was used. \
+                         This may indicate a downgrade attack. Update the lockfile if the plugin's \
+                         attestation configuration has intentionally changed."
+                    ));
+                }
+            }
+
             return Ok(tv);
         }
 
