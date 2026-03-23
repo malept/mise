@@ -234,7 +234,7 @@ impl Vfox {
         let pre = self
             .pre_install_for_platform(sdk, version, os, arch)
             .await?;
-        let att = pre.attestation.and_then(attestation_to_verified);
+        let att = pre.attestation.as_ref().and_then(attestation_to_verified);
         // Note: pre.sha256 / pre.sha512 are intentionally not returned here;
         // checksum verification only happens during `mise install`, not `mise lock`.
         Ok((pre.url, att))
@@ -300,6 +300,23 @@ impl Vfox {
         Ok(())
     }
 
+    /// Download a file and verify checksums + attestation for a backend plugin.
+    /// Returns (local_file_path, verified_attestation, checksum_verified).
+    pub async fn backend_download_and_verify(
+        &self,
+        sdk: &str,
+        url: &str,
+        version: &str,
+        params: &VerificationParams,
+    ) -> Result<(PathBuf, Option<VerifiedAttestation>, bool)> {
+        let plugin = self.get_sdk(sdk)?;
+        let parsed_url = Url::from_str(url)?;
+        let file = self.download(&parsed_url, &plugin, version).await?;
+        let verified = self.verify(params, &file).await?;
+        let checksum_verified = params.sha256.is_some() || params.sha512.is_some();
+        Ok((file, verified, checksum_verified))
+    }
+
     /// Run `BackendPreInstall` for the given target platform to resolve a download URL and checksums.
     pub async fn backend_pre_install_for_platform(
         &self,
@@ -317,6 +334,27 @@ impl Vfox {
             options,
         };
         plugin.backend_pre_install_for_platform(ctx, os, arch).await
+    }
+
+    /// Run `BackendPreInstall` and return the response + highest-priority attestation type
+    /// declared, without performing actual verification. Used at lock time.
+    pub async fn backend_pre_install_provenance_for_platform(
+        &self,
+        sdk: &str,
+        tool: &str,
+        version: &str,
+        os: &str,
+        arch: &str,
+        options: IndexMap<String, String>,
+    ) -> Result<(BackendPreInstallResponse, Option<VerifiedAttestation>)> {
+        let response = self
+            .backend_pre_install_for_platform(sdk, tool, version, os, arch, options)
+            .await?;
+        let att = response
+            .attestation
+            .as_ref()
+            .and_then(attestation_to_verified);
+        Ok((response, att))
     }
 
     pub async fn backend_exec_env(
@@ -522,26 +560,28 @@ impl Vfox {
 ///
 /// This is used by `pre_install_provenance_for_platform` to report what *type* of attestation
 /// the plugin declares, without actually performing sigstore verification.
-fn attestation_to_verified(att: PreInstallAttestation) -> Option<VerifiedAttestation> {
+fn attestation_to_verified(att: &PreInstallAttestation) -> Option<VerifiedAttestation> {
     // GitHub attestations have the highest priority
-    if let Some(owner) = att.github_owner
-        && let Some(repo) = att.github_repo
+    if let Some(owner) = &att.github_owner
+        && let Some(repo) = &att.github_repo
     {
         return Some(VerifiedAttestation::GithubAttestations {
-            owner,
-            repo,
-            signer_workflow: att.github_signer_workflow,
+            owner: owner.clone(),
+            repo: repo.clone(),
+            signer_workflow: att.github_signer_workflow.clone(),
         });
     }
     // SLSA is second priority
-    if let Some(provenance_path) = att.slsa_provenance_path {
-        return Some(VerifiedAttestation::Slsa { provenance_path });
+    if let Some(provenance_path) = &att.slsa_provenance_path {
+        return Some(VerifiedAttestation::Slsa {
+            provenance_path: provenance_path.clone(),
+        });
     }
     // Cosign is third priority
-    if let Some(sig_or_bundle_path) = att.cosign_sig_or_bundle_path {
+    if let Some(sig_or_bundle_path) = &att.cosign_sig_or_bundle_path {
         return Some(VerifiedAttestation::Cosign {
-            sig_or_bundle_path,
-            public_key_path: att.cosign_public_key_path,
+            sig_or_bundle_path: sig_or_bundle_path.clone(),
+            public_key_path: att.cosign_public_key_path.clone(),
         });
     }
     None
